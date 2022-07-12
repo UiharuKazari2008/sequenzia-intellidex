@@ -396,7 +396,9 @@
             }, function (ok) { })
             console.log("Completed Metadata Update!")
         }
-        const cleanUp = await sqlPromiseSimple(`DELETE FROM kongou_shows WHERE (${seriesIds.map(e => "show_id != '" + e + "'" ).join(' AND ')})`)
+        if (seriesIds.length > 0) {
+            const cleanUp = await sqlPromiseSimple(`DELETE FROM kongou_shows WHERE (${seriesIds.map(e => "show_id != '" + e + "'" ).join(' AND ')})`)
+        }
     }
 
     // Artist Indexer
@@ -673,9 +675,10 @@
             requests.then(async () => {
                 console.log('Index Generated!');
                 const artistsToRemove = (await sqlPromiseSimple(`SELECT id FROM sequenzia_index_artists`)).rows.filter(id => foundArtists.indexOf(id.id) !== -1).map(id => `id = '${id}'`).join(' OR ');
-                await sqlPromiseSimple(`DELETE FROM sequenzia_index_artists WHERE (${artistsToRemove})`)
+                if (artistsToRemove.length > 0) {
+                    await sqlPromiseSimple(`DELETE FROM sequenzia_index_artists WHERE (${artistsToRemove})`)
+                }
             })
-
         } else {
             console.log('Failed to get any photo channels')
         }
