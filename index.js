@@ -683,8 +683,8 @@
 
     await updateMetadata();
     await generateArtistIndex();
-    cron.schedule('60 * * * *', updateMetadata)
-    cron.schedule('30 * * * *', generateArtistIndex)
+    cron.schedule('0,30 * * * *', updateMetadata)
+    cron.schedule('0,30 * * * *', generateArtistIndex)
 
 
 
