@@ -399,7 +399,6 @@
         if (seriesIds.length > 0) {
             const cleanUp = await sqlPromiseSimple(`DELETE FROM kongou_shows WHERE (${seriesIds.map(e => "show_id != '" + e + "'" ).join(' AND ')})`)
         }
-        setTimeout(() => updateMetadata, 1800000)
     }
 
     // Artist Indexer
@@ -679,7 +678,7 @@
                 if (artistsToRemove.length > 0) {
                     await sqlPromiseSimple(`DELETE FROM sequenzia_index_artists WHERE (${artistsToRemove})`)
                 }
-                setTimeout(() => generateArtistIndex, 1800000)
+
             })
         } else {
             console.log('Failed to get any photo channels')
@@ -689,4 +688,6 @@
 
     await updateMetadata();
     await generateArtistIndex();
+    setInterval(() => generateArtistIndex, 1800000);
+    setInterval(() => updateMetadata, 1800000);
 })()
