@@ -678,16 +678,14 @@
                 if (artistsToRemove.length > 0) {
                     await sqlPromiseSimple(`DELETE FROM sequenzia_index_artists WHERE (${artistsToRemove})`)
                 }
-
             })
         } else {
             console.log('Failed to get any photo channels')
         }
-
     }
 
-    setInterval(() => generateArtistIndex, 1800000);
-    setInterval(() => updateMetadata, 1800000);
+    cron.schedule('*/30 * * * *', generateArtistIndex);
+    cron.schedule('15 * * * *', updateMetadata);
     updateMetadata();
     generateArtistIndex();
 })()
