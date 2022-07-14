@@ -686,8 +686,8 @@
 
     }
 
-    await updateMetadata();
-    await generateArtistIndex();
     setInterval(() => generateArtistIndex, 1800000);
     setInterval(() => updateMetadata, 1800000);
+    updateMetadata();
+    generateArtistIndex();
 })()
