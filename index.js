@@ -292,7 +292,6 @@
                                     media_group: mediaGroup.media_group,
                                     name: showMeta.name,
                                     original_name: showMeta.originalName,
-                                    nsfw: showMeta.nsfw,
                                     genres: (showMeta.genres && showMeta.genres.length > 0) ? showMeta.genres.join('; ') : null,
                                     data: JSON.stringify(showMeta)
                                 },
@@ -300,7 +299,6 @@
                                     media_group: mediaGroup.media_group,
                                     name: showMeta.name,
                                     original_name: showMeta.originalName,
-                                    nsfw: showMeta.nsfw,
                                     genres: (showMeta.genres && showMeta.genres.length > 0) ? showMeta.genres.join('; ') : null,
                                     data: JSON.stringify(showMeta)
                                 }
@@ -349,7 +347,6 @@
                                     media_group: mediaGroup.media_group,
                                     name: movieMeta.name,
                                     original_name: movieMeta.originalName,
-                                    nsfw: movieMeta.nsfw,
                                     genres: (movieMeta.genres && movieMeta.genres.length > 0) ? movieMeta.genres.join('; ') : null,
                                     data: JSON.stringify(movieMeta)
                                 },
@@ -357,7 +354,6 @@
                                     media_group: mediaGroup.media_group,
                                     name: movieMeta.name,
                                     original_name: movieMeta.originalName,
-                                    nsfw: movieMeta.nsfw,
                                     genres: (movieMeta.genres && movieMeta.genres.length > 0) ? movieMeta.genres.join('; ') : null,
                                     data: JSON.stringify(movieMeta)
                                 }
