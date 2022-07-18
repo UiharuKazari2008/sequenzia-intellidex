@@ -8,7 +8,7 @@
 
     // Library Metadata Retrieval
     async function extractShowNames(media_group) {
-        const results = (await sqlPromiseSafe(`SELECT kanmi_records.content_full, kanmi_records.attachment_name, kanmi_records.real_filename, kanmi_records.eid FROM kanmi_records, kanmi_channels WHERE kanmi_channels.channelid = kanmi_records.channel AND kanmi_channels.media_group = ? AND (kanmi_records.real_filename IS NOT NULL OR kanmi_records.attachment_name IS NOT NULL) ORDER BY kanmi_records.real_filename, kanmi_records.attachment_name;`, [media_group])).rows
+        const results = (await sqlPromiseSafe(`SELECT kanmi_records.content_full, kanmi_records.attachment_name, kanmi_records.real_filename, kanmi_records.eid FROM kanmi_records, kanmi_channels WHERE kanmi_records.real_filename IS NOT NULL AND kanmi_channels.channelid = kanmi_records.channel AND kanmi_channels.media_group = ? AND (kanmi_records.real_filename IS NOT NULL OR kanmi_records.attachment_name IS NOT NULL) ORDER BY kanmi_records.real_filename, kanmi_records.attachment_name;`, [media_group])).rows
         if (results.length > 0) {
             // Transform Filenames
             const filename = results.map(e => {
