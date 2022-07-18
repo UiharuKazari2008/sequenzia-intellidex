@@ -33,7 +33,7 @@
             showNames.map(e => {
                 const records = filename.filter(f => f.name.toLowerCase().startsWith(e))
                 let special = 0;
-                episodeMap[e] = records.map(f => !!f.name).map(f => {
+                episodeMap[e] = records.filter(f => !!f.name).map(f => {
                     let s = null;
                     let ep = null;
                     const textEnd = f.name.split(' - ')[1].split('.')[0].trim().toLowerCase()
