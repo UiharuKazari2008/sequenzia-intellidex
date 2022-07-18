@@ -33,6 +33,10 @@
             showNames.map(e => {
                 const records = filename.filter(f => f.name.toLowerCase().startsWith(e))
                 let special = 0;
+                console.error(`Files that where omitted due to missing proper " - " separators:`)
+                console.error(records.filter(f => f.name.split(' - ').length <= 1).map(f => {
+                    return `${f.eid} // "${f.orignalName}"`
+                }))
                 episodeMap[e] = records.filter(f => f.name.split(' - ').length > 1).map(f => {
                     let s = null;
                     let ep = null;
@@ -208,7 +212,7 @@
                 }
             })
         } else {
-            console.error('Missing required data to get metadata');
+            console.error(`Missing required data to get metadata for "${showName}"`);
             return false
         }
     }
