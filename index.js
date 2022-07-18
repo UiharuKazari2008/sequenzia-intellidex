@@ -36,7 +36,6 @@
                 episodeMap[e] = records.filter(f => f.name.split(' - ').length > 1).map(f => {
                     let s = null;
                     let ep = null;
-                    console.log(f)
                     const textEnd = f.name.split(' - ')[1].split('.')[0].trim().toLowerCase()
                     if (textEnd.includes('x')) {
                         const parts = textEnd.split('x')
