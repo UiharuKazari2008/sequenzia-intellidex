@@ -234,7 +234,7 @@
                     if (returnedSearch.total_results > 0) {
                         const returnedShow = returnedSearch.results[0];
                         const show = (await tmdb.movieInfo({ id: returnedShow.id })).body
-                        console.log(`Matched the movie "${show.name}" => "${movieName}"`)
+                        console.log(`Matched the movie "${show.title}" => "${movieName}"`)
 
                         // Extract and transform metadata
                         returnedMeta.id = returnedShow.id
