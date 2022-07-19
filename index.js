@@ -684,7 +684,7 @@
         }
     }
 
-    cron.schedule('*/30 * * * *', generateArtistIndex);
+    cron.schedule('45 * * * *', generateArtistIndex);
     cron.schedule('15 * * * *', updateMetadata);
     updateMetadata();
     generateArtistIndex();
