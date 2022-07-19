@@ -199,7 +199,7 @@
                                 })
                             }
                         }))
-                        setTimeout(() => { resolve(returnedMeta) }, 3000);
+                        setTimeout(() => { resolve(returnedMeta) }, 1000);
 
                     } else {
                         console.log('No Results Found for ' + showName)
@@ -260,7 +260,7 @@
                         returnedMeta.genres = show.genres.map(g => g.name).filter(g => !!g)
                         returnedMeta.entity = (movieFile.length > 0 && movieFile[0].eid) ? movieFile.map(e => e.eid) : undefined
 
-                        setTimeout(() => { resolve(returnedMeta) }, 3000);
+                        setTimeout(() => { resolve(returnedMeta) }, 1000);
 
                     } else {
                         console.log('No Results Found for ' + movieName)
@@ -684,8 +684,8 @@
         }
     }
 
-    cron.schedule('45 * * * *', generateArtistIndex);
-    cron.schedule('15 * * * *', updateMetadata);
+    cron.schedule('45 * * * *', async () => { generateArtistIndex(); });
+    cron.schedule('15 * * * *', async () => { updateMetadata(); });
     updateMetadata();
     generateArtistIndex();
 })()
