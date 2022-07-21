@@ -125,7 +125,7 @@
             return {}
         }
     }
-    async function updateShowMetadata(showName, seasonEpisode) {
+    async function updateShowMetadata(showName, seasonEpisode, adult) {
         if (showName && seasonEpisode && seasonEpisode.length > 0) {
             return await new Promise(async (resolve) => {
                 let returnedMeta = {};
@@ -138,7 +138,7 @@
                             total_results: 1
                         }
                     } else {
-                        returnedSearch = (await tmdb.searchTv({ query: showName })).body
+                        returnedSearch = (await tmdb.searchTv({ query: showName, include_adult: (adult) })).body
                     }
                     if (returnedSearch.total_results > 0) {
                         const returnedShow = returnedSearch.results[0];
@@ -216,7 +216,7 @@
             return false
         }
     }
-    async function updateMovieMetadata(movieName, movieFile) {
+    async function updateMovieMetadata(movieName, movieFile, adult) {
         if (movieName && movieFile) {
             return await new Promise(async (resolve) => {
                 let returnedMeta = {};
@@ -229,7 +229,7 @@
                             total_results: 1
                         }
                     } else {
-                        returnedSearch = (await tmdb.searchMovie({ query: movieName })).body
+                        returnedSearch = (await tmdb.searchMovie({ query: movieName, include_adult: (adult) })).body
                     }
                     if (returnedSearch.total_results > 0) {
                         const returnedShow = returnedSearch.results[0];
@@ -286,7 +286,7 @@
                     const showList = await extractShowNames(mediaGroup.media_group);
                     for (let k of Object.keys(showList)) {
                         const episodesList = showList[k];
-                        const showMeta = await updateShowMetadata(k, episodesList);
+                        const showMeta = await updateShowMetadata(k, episodesList, (mediaGroup.adult === 1));
                         if (showMeta && showMeta.id) {
                             if (seriesIds.indexOf(showMeta.id) === -1)
                                 seriesIds.push(showMeta.id);
@@ -341,7 +341,7 @@
                     const movieList = await extractMovieNames(mediaGroup.media_group);
                     for (let k of Object.keys(movieList)) {
                         const movieFile = movieList[k];
-                        const movieMeta = await updateMovieMetadata(k, movieFile);
+                        const movieMeta = await updateMovieMetadata(k, movieFile, (mediaGroup.adult === 1));
                         if (movieMeta && movieMeta.id) {
                             if (seriesIds.indexOf(movieMeta.id) === -1)
                                 seriesIds.push(movieMeta.id);
