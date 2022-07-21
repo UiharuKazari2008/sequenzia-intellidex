@@ -5,6 +5,7 @@
     const { sendData } = require("./utils/mqAccess");
     const tmdb = require('themoviedb-api-client')('99db16e16ddd3a1995a0069eeca27dc6');
     const tmdbStatic = (await tmdb.configuration()).body;
+    let activeMetdataQuery = false;
 
     // Library Metadata Retrieval
     async function extractShowNames(media_group) {
@@ -33,10 +34,6 @@
             showNames.map(e => {
                 const records = filename.filter(f => f.name.toLowerCase().startsWith(e))
                 let special = 0;
-                console.error(`Files that where omitted due to missing proper " - " separators:`)
-                console.error(records.filter(f => f.name.split(' - ').length <= 1).map(f => {
-                    return `${f.eid} // "${f.orignalName}"`
-                }))
                 episodeMap[e] = records.filter(f => f.name.split(' - ').length > 1).map(f => {
                     let s = null;
                     let ep = null;
@@ -125,85 +122,102 @@
             return {}
         }
     }
-    async function updateShowMetadata(showName, seasonEpisode, adult) {
+    async function updateShowMetadata(showName, seasonEpisode, adult, existingData) {
         if (showName && seasonEpisode && seasonEpisode.length > 0) {
             return await new Promise(async (resolve) => {
                 let returnedMeta = {};
                 try {
-                    const overides = (await sqlPromiseSafe(`SELECT show_id FROM kongou_shows_maps WHERE search = ?`, showName)).rows
-                    let returnedSearch
-                    if (overides.length > 0) {
-                        returnedSearch = {
-                            results: [ { id: overides[0].show_id } ],
-                            total_results: 1
-                        }
-                    } else {
-                        returnedSearch = (await tmdb.searchTv({ query: showName, include_adult: (adult) })).body
-                    }
-                    if (returnedSearch.total_results > 0) {
-                        const returnedShow = returnedSearch.results[0];
-                        const show = (await tmdb.tvInfo({ id: returnedShow.id })).body
-                        console.log(`Matched the show "${show.name}" => "${showName}"`);
-
-                        // Extract and transform metadata
-                        returnedMeta.id = returnedShow.id
-                        returnedMeta.name = show.name;
-                        returnedMeta.originalName = show.original_name;
-                        returnedMeta.description = show.overview;
-                        returnedMeta.episodes = show.number_of_episodes;
-                        returnedMeta.seasons = show.number_of_seasons;
-                        returnedMeta.nsfw = (show.adult);
-                        returnedMeta.status = show.status;
-                        returnedMeta.rateing = show.vote_average;
-                        if (show.backdrop_path) {
-                            returnedMeta.background = [
-                                tmdbStatic.images.secure_base_url + 'w780' + show.backdrop_path,
-                                tmdbStatic.images.secure_base_url + 'original' + show.backdrop_path
-                            ];
-                        }
-                        if (show.poster_path) {
-                            returnedMeta.poster = [
-                                tmdbStatic.images.secure_base_url + 'w500' + show.poster_path,
-                                tmdbStatic.images.secure_base_url + 'original' + show.poster_path
-                            ];
-                        }
-                        returnedMeta.date = show.first_air_date;
-                        returnedMeta.url = show.homepage;
-                        returnedMeta.genres = show.genres.map(g => g.name).filter(g => !!g)
-
-                        returnedMeta.seasons = await Promise.all(show.seasons.map(async s => {
-                            const returnedSeason = (await tmdb.tvSeasonInfo({
-                                id: returnedShow.id,
-                                season_number: s.season_number
-                            })).body
+                    if (existingData && existingData.data) {
+                        returnedMeta = existingData.data;
+                        returnedMeta.seasons = await Promise.all(existingData.data.seasons.map(async s => {
                             return {
-                                number: s.season_number,
-                                name: returnedSeason.name,
-                                description: returnedSeason.overview,
-                                date: returnedSeason.air_date,
-                                poster: [
-                                    tmdbStatic.images.secure_base_url + 'w500' + returnedSeason.poster_path,
-                                    tmdbStatic.images.secure_base_url + 'original' + returnedSeason.poster_path
-                                ],
-                                episodes: returnedSeason.episodes.map(e => {
-                                    const episodeData = seasonEpisode.filter(g => g.season === s.season_number && g.episode === e.episode_number)
+                                ...s,
+                                episodes: s.episodes.map(e => {
+                                    const episodeData = seasonEpisode.filter(g => g.season === s.number && g.episode === e.number)
                                     return {
-                                        number: e.episode_number,
-                                        date: e.air_date,
-                                        name: e.name,
-                                        description: e.overview,
-                                        thumbnail: tmdbStatic.images.secure_base_url + 'original' + e.still_path,
-                                        durationMinutes: e.runtime,
+                                        ...e,
                                         entity: (episodeData.length > 0 && episodeData[0].eid) ? episodeData[0].eid : undefined
                                     }
                                 })
                             }
                         }))
-                        setTimeout(() => { resolve(returnedMeta) }, 1000);
-
+                        resolve(returnedMeta);
                     } else {
-                        console.log('No Results Found for ' + showName)
-                        resolve({})
+                        const overides = (await sqlPromiseSafe(`SELECT show_id FROM kongou_shows_maps WHERE search = ?`, showName)).rows
+                        let returnedSearch
+                        if (overides.length > 0) {
+                            returnedSearch = {
+                                results: [ { id: overides[0].show_id } ],
+                                total_results: 1
+                            }
+                        } else {
+                            returnedSearch = (await tmdb.searchTv({ query: showName, include_adult: (adult) })).body
+                        }
+                        if (returnedSearch.total_results > 0) {
+                            const returnedShow = returnedSearch.results[0];
+                            const show = (await tmdb.tvInfo({ id: returnedShow.id })).body
+                            console.log(`Matched the show "${show.name}" => "${showName}"`);
+
+                            // Extract and transform metadata
+                            returnedMeta.id = returnedShow.id
+                            returnedMeta.name = show.name;
+                            returnedMeta.originalName = show.original_name;
+                            returnedMeta.description = show.overview;
+                            returnedMeta.episodes = show.number_of_episodes;
+                            returnedMeta.seasons = show.number_of_seasons;
+                            returnedMeta.nsfw = (show.adult);
+                            returnedMeta.status = show.status;
+                            returnedMeta.rateing = show.vote_average;
+                            if (show.backdrop_path) {
+                                returnedMeta.background = [
+                                    tmdbStatic.images.secure_base_url + 'w780' + show.backdrop_path,
+                                    tmdbStatic.images.secure_base_url + 'original' + show.backdrop_path
+                                ];
+                            }
+                            if (show.poster_path) {
+                                returnedMeta.poster = [
+                                    tmdbStatic.images.secure_base_url + 'w500' + show.poster_path,
+                                    tmdbStatic.images.secure_base_url + 'original' + show.poster_path
+                                ];
+                            }
+                            returnedMeta.date = show.first_air_date;
+                            returnedMeta.url = show.homepage;
+                            returnedMeta.genres = show.genres.map(g => g.name).filter(g => !!g)
+
+                            returnedMeta.seasons = await Promise.all(show.seasons.map(async s => {
+                                const returnedSeason = (await tmdb.tvSeasonInfo({
+                                    id: returnedShow.id,
+                                    season_number: s.season_number
+                                })).body
+                                return {
+                                    number: s.season_number,
+                                    name: returnedSeason.name,
+                                    description: returnedSeason.overview,
+                                    date: returnedSeason.air_date,
+                                    poster: [
+                                        tmdbStatic.images.secure_base_url + 'w500' + returnedSeason.poster_path,
+                                        tmdbStatic.images.secure_base_url + 'original' + returnedSeason.poster_path
+                                    ],
+                                    episodes: returnedSeason.episodes.map(e => {
+                                        const episodeData = seasonEpisode.filter(g => g.season === s.season_number && g.episode === e.episode_number)
+                                        return {
+                                            number: e.episode_number,
+                                            date: e.air_date,
+                                            name: e.name,
+                                            description: e.overview,
+                                            thumbnail: tmdbStatic.images.secure_base_url + 'original' + e.still_path,
+                                            durationMinutes: e.runtime,
+                                            entity: (episodeData.length > 0 && episodeData[0].eid) ? episodeData[0].eid : undefined
+                                        }
+                                    })
+                                }
+                            }))
+                            setTimeout(() => { resolve(returnedMeta) }, 1000);
+
+                        } else {
+                            console.log('No Results Found for ' + showName)
+                            resolve({})
+                        }
                     }
                 } catch (err) {
                     console.error(`Failed to get metadata for the show ${showName}`)
@@ -277,127 +291,154 @@
             return false
         }
     }
-    async function updateMetadata() {
-        const mediaGroups = (await sqlPromiseSafe(`SELECT * FROM kongou_media_groups`)).rows;
-        let seriesIds = [];
-        if (mediaGroups.length > 0) {
-            for (let mediaGroup of mediaGroups) {
-                if (mediaGroup.type === 2) {
-                    const showList = await extractShowNames(mediaGroup.media_group);
-                    for (let k of Object.keys(showList)) {
-                        const episodesList = showList[k];
-                        const showMeta = await updateShowMetadata(k, episodesList, (mediaGroup.adult === 1));
-                        if (showMeta && showMeta.id) {
-                            if (seriesIds.indexOf(showMeta.id) === -1)
-                                seriesIds.push(showMeta.id);
-                            await sqlPromiseSafe(`INSERT INTO kongou_shows SET ? ON DUPLICATE KEY UPDATE ?`, [
-                                {
-                                    show_id: showMeta.id,
-                                    media_group: mediaGroup.media_group,
-                                    name: showMeta.name,
-                                    original_name: showMeta.originalName,
-                                    genres: (showMeta.genres && showMeta.genres.length > 0) ? showMeta.genres.join('; ') : null,
-                                    data: JSON.stringify(showMeta)
-                                },
-                                {
-                                    media_group: mediaGroup.media_group,
-                                    name: showMeta.name,
-                                    original_name: showMeta.originalName,
-                                    genres: (showMeta.genres && showMeta.genres.length > 0) ? showMeta.genres.join('; ') : null,
-                                    data: JSON.stringify(showMeta)
+    async function updateMetadata(fullUpdate) {
+        if (!activeMetdataQuery){
+            activeMetdataQuery = true;
+            const mediaShows = (await sqlPromiseSafe('SELECT * FROM kongou_shows')).rows
+            const mediaGroups = (await sqlPromiseSafe(`SELECT * FROM kongou_media_groups`)).rows;
+            let seriesIds = [];
+            if (mediaGroups.length > 0) {
+                for (let mediaGroup of mediaGroups) {
+                    if (mediaGroup.type === 2) {
+                        const showList = await extractShowNames(mediaGroup.media_group);
+                        for (let k of Object.keys(showList)) {
+                            const episodesList = showList[k];
+                            const foundShow = mediaShows.filter(e => e.search && e.search === k);
+                            const showMeta = await updateShowMetadata(k, episodesList, (mediaGroup.adult === 1), ((foundShow.length > 0 && !fullUpdate) ? foundShow[0] : undefined));
+                            if (showMeta && showMeta.id) {
+                                if (seriesIds.indexOf(showMeta.id) === -1)
+                                    seriesIds.push(showMeta.id);
+                                if (foundShow.length === 0 || fullUpdate) {
+                                    console.error('New Show ' + showMeta.id + ' added to library');
+                                    await sqlPromiseSafe(`INSERT INTO kongou_shows SET ? ON DUPLICATE KEY UPDATE ?`, [
+                                        {
+                                            show_id: showMeta.id,
+                                            media_group: mediaGroup.media_group,
+                                            name: showMeta.name,
+                                            original_name: showMeta.originalName,
+                                            genres: (showMeta.genres && showMeta.genres.length > 0) ? showMeta.genres.join('; ') : null,
+                                            data: JSON.stringify(showMeta),
+                                            search: k,
+                                        },
+                                        {
+                                            media_group: mediaGroup.media_group,
+                                            name: showMeta.name,
+                                            original_name: showMeta.originalName,
+                                            genres: (showMeta.genres && showMeta.genres.length > 0) ? showMeta.genres.join('; ') : null,
+                                            data: JSON.stringify(showMeta),
+                                            search: k,
+                                        }
+                                    ]);
                                 }
-                            ]);
-                            let episodes = []
-                            showMeta.seasons.map(s => {
-                                return s.episodes.filter(e => !!e.entity).map(e => {
-                                    episodes.push({
-                                        season: s.number,
-                                        ...e,
+                                const episodesFound = (await sqlPromiseSafe(`SELECT * FROM kongou_episodes WHERE show_id = ?`, [showMeta.id])).rows;
+                                let episodes = []
+                                showMeta.seasons.map(s => {
+                                    return s.episodes.filter(e => !!e.entity && episodesFound.filter(f => f.eid === e.entity && f.episode_num === e.number && f.season_num === s.number && f.show_id === showMeta.id).length === 0).map(e => {
+                                        episodes.push({
+                                            season: s.number,
+                                            ...e,
+                                        })
                                     })
                                 })
-                            })
-                            for (let e of episodes) {
-                                await sqlPromiseSafe(`INSERT INTO kongou_episodes SET ? ON DUPLICATE KEY UPDATE ?`, [
-                                    {
-                                        eid: e.entity,
-                                        show_id: showMeta.id,
-                                        episode_num: e.number,
-                                        episode_name: e.name,
-                                        season_num: e.season,
-                                        data: JSON.stringify(e)
-                                    },
-                                    {
-                                        show_id: showMeta.id,
-                                        episode_num: e.number,
-                                        episode_name: e.name,
-                                        season_num: e.season,
-                                        data: JSON.stringify(e)
+                                if (episodes.length > 0) {
+                                    console.info(showMeta.name + ': found ' + episodes.length + ' new or updated episode(s)');
+                                    for (let e of episodes) {
+                                        await sqlPromiseSafe(`INSERT INTO kongou_episodes SET ? ON DUPLICATE KEY UPDATE ?`, [
+                                            {
+                                                eid: e.entity,
+                                                show_id: showMeta.id,
+                                                episode_num: e.number,
+                                                episode_name: e.name,
+                                                season_num: e.season,
+                                                data: JSON.stringify(e)
+                                            },
+                                            {
+                                                show_id: showMeta.id,
+                                                episode_num: e.number,
+                                                episode_name: e.name,
+                                                season_num: e.season,
+                                                data: JSON.stringify(e)
+                                            }
+                                        ]);
                                     }
-                                ]);
+                                }
                             }
                         }
-                    }
-                } else if (mediaGroup.type === 1) {
-                    const movieList = await extractMovieNames(mediaGroup.media_group);
-                    for (let k of Object.keys(movieList)) {
-                        const movieFile = movieList[k];
-                        const movieMeta = await updateMovieMetadata(k, movieFile, (mediaGroup.adult === 1));
-                        if (movieMeta && movieMeta.id) {
-                            if (seriesIds.indexOf(movieMeta.id) === -1)
-                                seriesIds.push(movieMeta.id);
-                            await sqlPromiseSafe(`INSERT INTO kongou_shows SET ? ON DUPLICATE KEY UPDATE ?`, [
-                                {
-                                    show_id: movieMeta.id,
-                                    media_group: mediaGroup.media_group,
-                                    name: movieMeta.name,
-                                    original_name: movieMeta.originalName,
-                                    genres: (movieMeta.genres && movieMeta.genres.length > 0) ? movieMeta.genres.join('; ') : null,
-                                    data: JSON.stringify(movieMeta)
-                                },
-                                {
-                                    media_group: mediaGroup.media_group,
-                                    name: movieMeta.name,
-                                    original_name: movieMeta.originalName,
-                                    genres: (movieMeta.genres && movieMeta.genres.length > 0) ? movieMeta.genres.join('; ') : null,
-                                    data: JSON.stringify(movieMeta)
+                    } else if (mediaGroup.type === 1) {
+                        const movieList = await extractMovieNames(mediaGroup.media_group);
+                        for (let k of Object.keys(movieList)) {
+                            const movieFile = movieList[k];
+                            const foundMovie = mediaShows.filter(e => e.search && e.search === k);
+                            const movieMeta = (foundMovie.length > 0 && !fullUpdate) ? { ...foundMovie[0].data, entity: (movieFile.length > 0 && movieFile[0].eid) ? movieFile.map(e => e.eid) : undefined } : await updateMovieMetadata(k, movieFile, (mediaGroup.adult === 1));
+                            if (movieMeta && movieMeta.id) {
+                                if (seriesIds.indexOf(movieMeta.id) === -1)
+                                    seriesIds.push(movieMeta.id);
+                                if (foundMovie.length === 0 || fullUpdate) {
+                                    await sqlPromiseSafe(`INSERT INTO kongou_shows SET ? ON DUPLICATE KEY UPDATE ?`, [
+                                        {
+                                            show_id: movieMeta.id,
+                                            media_group: mediaGroup.media_group,
+                                            name: movieMeta.name,
+                                            original_name: movieMeta.originalName,
+                                            genres: (movieMeta.genres && movieMeta.genres.length > 0) ? movieMeta.genres.join('; ') : null,
+                                            data: JSON.stringify(movieMeta),
+                                            search: k,
+                                        },
+                                        {
+                                            media_group: mediaGroup.media_group,
+                                            name: movieMeta.name,
+                                            original_name: movieMeta.originalName,
+                                            genres: (movieMeta.genres && movieMeta.genres.length > 0) ? movieMeta.genres.join('; ') : null,
+                                            data: JSON.stringify(movieMeta),
+                                            search: k,
+                                        }
+                                    ]);
                                 }
-                            ]);
-                            for (let e of movieMeta.entity) {
-                                await sqlPromiseSafe(`INSERT INTO kongou_episodes SET ? ON DUPLICATE KEY UPDATE ?`, [
-                                    {
-                                        eid: e,
-                                        show_id: movieMeta.id,
-                                        episode_num: null,
-                                        episode_name: null,
-                                        season_num: movieMeta.entity.indexOf(e),
-                                        data: JSON.stringify(e)
-                                    },
-                                    {
-                                        show_id: movieMeta.id,
-                                        episode_num: null,
-                                        episode_name: null,
-                                        season_num: movieMeta.entity.indexOf(e),
-                                        data: JSON.stringify(e)
+                                const moviesFound = (await sqlPromiseSafe(`SELECT * FROM kongou_episodes WHERE show_id = ?`, [movieMeta.id])).rows;
+                                const updatedEntitys = movieMeta.entity.filter(e => moviesFound.filter(f => e === f.eid && movieMeta.id === f.show_id).length === 0)
+                                if (updatedEntitys.length > 0) {
+                                    console.info(movieMeta.name + ': found ' + updatedEntitys.length + ' movie files');
+                                    for (let e of updatedEntitys) {
+                                        await sqlPromiseSafe(`INSERT INTO kongou_episodes SET ? ON DUPLICATE KEY UPDATE ?`, [
+                                            {
+                                                eid: e,
+                                                show_id: movieMeta.id,
+                                                episode_num: null,
+                                                episode_name: null,
+                                                season_num: movieMeta.entity.indexOf(e),
+                                                data: JSON.stringify(e),
+                                            },
+                                            {
+                                                show_id: movieMeta.id,
+                                                episode_num: null,
+                                                episode_name: null,
+                                                season_num: movieMeta.entity.indexOf(e),
+                                                data: JSON.stringify(e),
+                                            }
+                                        ]);
                                     }
-                                ]);
+                                }
+                            } else {
+                                console.log(`Failed to match the movie "${movieFile}"`)
                             }
-                        } else {
-                            console.log(`Failed to match the movie "${movieFile}"`)
                         }
                     }
                 }
+                sendData('outbox.discord', {
+                    fromClient : `return.IntelliDex`,
+                    messageReturn: false,
+                    messageChannelID : '0',
+                    messageType: 'command',
+                    messageAction: 'CacheIDEXMeta',
+                }, function (ok) { })
+                console.log("Completed Metadata Update!")
             }
-            sendData('outbox.discord', {
-                fromClient : `return.IntelliDex`,
-                messageReturn: false,
-                messageChannelID : '0',
-                messageType: 'command',
-                messageAction: 'CacheIDEXMeta',
-            }, function (ok) { })
-            console.log("Completed Metadata Update!")
-        }
-        if (seriesIds.length > 0) {
-            const cleanUp = await sqlPromiseSimple(`DELETE FROM kongou_shows WHERE (${seriesIds.map(e => "show_id != '" + e + "'" ).join(' AND ')})`)
+            if (seriesIds.length > 0) {
+                const cleanUp = await sqlPromiseSimple(`DELETE FROM kongou_shows WHERE (${seriesIds.map(e => "show_id != '" + e + "'" ).join(' AND ')})`)
+            }
+            await sqlPromiseSimple(`DELETE FROM kongou_episodes WHERE eid IN (SELECT episodes.eid FROM (SELECT e.eid, e.channel, e.show_id, s.media_group FROM (SELECT ep.show_id, rec.* FROM (SELECT eid, show_id FROM kongou_episodes) ep LEFT JOIN (SELECT * FROM kanmi_records) rec ON (ep.eid = rec.eid)) e LEFT JOIN (SELECT * FROM kongou_shows) s ON (e.show_id = s.show_id)) episodes LEFT JOIN (SELECT * FROM kanmi_channels) channels ON (channels.channelid = episodes.channel) WHERE channels.media_group IS NULL)`)
+            console.log("Completed Cleanup!")
+            activeMetdataQuery = false;
         }
     }
 
@@ -685,7 +726,8 @@
     }
 
     cron.schedule('45 * * * *', async () => { generateArtistIndex(); });
-    cron.schedule('15 * * * *', async () => { updateMetadata(); });
+    cron.schedule('0 * * * *', async () => { updateMetadata(true); });
+    cron.schedule('5,10,15,20,25,30,35,40,45,50,55 * * * *', async () => { updateMetadata(); });
     updateMetadata();
     generateArtistIndex();
 })()
