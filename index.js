@@ -623,7 +623,7 @@
 
                         const at1 = artists.filter(a => a.type === 1)
                         const at2 = artists.filter(a => a.type === 2 && at1.filter(b => b.name === a.artist).length === 0 && at1.filter(b => b.artist === a.artist).length === 0)
-                        const at3 = artists.filter(a => a.type === 3 && at1.filter(b => b.name === a.artist).length === 0 && at1.filter(b => b.artist === a.artist).length === 0)
+                        const at3 = artists.filter(a => a.type === 3 && a.artist.length > 3 && at1.filter(b => b.name === a.artist).length === 0 && at1.filter(b => b.artist === a.artist).length === 0)
                         artists = [...at1, ...at2, ...at3]
 
                         console.log(`Total Artists Found in ${ch.name}: ${artists.length}`)
