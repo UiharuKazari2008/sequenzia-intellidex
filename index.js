@@ -726,8 +726,7 @@
     }
 
     cron.schedule('45 * * * *', async () => { generateArtistIndex(); });
-    cron.schedule('0 * * * *', async () => { updateMetadata(true); });
-    cron.schedule('5,10,15,20,25,30,35,40,45,50,55 * * * *', async () => { updateMetadata(); });
+    cron.schedule('*/5 * * * *', async () => { updateMetadata(); });
     updateMetadata();
     generateArtistIndex();
 })()
