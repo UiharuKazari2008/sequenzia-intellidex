@@ -452,6 +452,7 @@
                                                AND parent != 'isparent'`, true);
         const customArtists = await sqlPromiseSimple(`SELECT *
                                                   FROM sequenzia_index_custom`, true);
+        const existingArtistsRows = await sqlPromiseSimple(`SELECT * FROM sequenzia_index_artists`, true);
         if (channels && channels.rows.length > 0) {
             await Promise.all(channels.rows.map(async ch => {
                 let artistsNames = [];
@@ -633,7 +634,17 @@
                                 _search += ` OR artist:${_cat[0].search}`
                             }
 
-                            const addedArtists = await sqlPromiseSafe(`INSERT INTO sequenzia_index_artists
+                            if (existingArtistsRows.rows.length > 0 && existingArtistsRows.rows.filter(n => n.id === _key).length > 0) {
+                                if (existingArtistsRows.rows.filter(n => n.id === _key)[0].count !== _atc) {
+                                    const addedArtists = await sqlPromiseSafe(`UPDATE sequenzia_index_artists SET count = ?, last = ? WHERE id = ?`, [_atc, _ati, _key], true);
+                                    if (!addedArtists) {
+                                        console.error(`Failed to update artist data for ${_artist} // ${_name}!`);
+                                    } else {
+                                        foundArtists.push(_key)
+                                    }
+                                }
+                            } else {
+                                const addedArtists = await sqlPromiseSafe(`INSERT INTO sequenzia_index_artists
                                                                        SET id         = ?,
                                                                            channelid  = ?,
                                                                            artist     = ?,
@@ -651,11 +662,13 @@
                                                                                                search     = ?,
                                                                                                source     = ?,
                                                                                                confidence = ?`, [_key, ch.channelid, _artist, _name, _atc, _search, _url, _ati, _ats, _atcn, _atc, _artist, _name, _ati, _search, _ats, _atcn], true);
-                            if (!addedArtists) {
-                                console.error(`Failed to write artist data for ${_artist} // ${_name}!`);
-                            } else {
-                                foundArtists.push(_key)
+                                if (!addedArtists) {
+                                    console.error(`Failed to write artist data for ${_artist} // ${_name}!`);
+                                } else {
+                                    foundArtists.push(_key)
+                                }
                             }
+
                         }))
 
                         console.log(`Pared all artists for ${ch.name}!`);
