@@ -10,14 +10,13 @@ if (process.env.DATABASE_PASSWORD && process.env.DATABASE_PASSWORD.trim().length
 
 const mysql = require('mysql2');
 const { printLine } = require('./logSystem');
-const sqlConnection = mysql.createPool({
+const sqlConnection = mysql.createConnection({
     host: config.sql_host,
     user: config.sql_user,
     password: config.sql_pass,
     database: config.sql_database,
     charset : 'utf8mb4',
     waitForConnections: true,
-    connectionLimit: 10,
     queueLimit: 0,
     debug: false
 });
