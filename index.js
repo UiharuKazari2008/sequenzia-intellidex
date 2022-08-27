@@ -579,6 +579,9 @@
                     if (artists.length > 0) {
                         //console.log(`Total Artists Found in ${ch.name}: ${artists.length}`)
 
+                        let createCount = 0;
+                        let updateCount = 0;
+
                         await Promise.all(artists.filter((value, index, self) => self.indexOf(value) === index).map(async at => {
                             const _cat = customArtists.rows.filter(a => a.artist === at.artist)
                             const _atl = messages.rows.filter(e => (e.content_full.toLowerCase().includes(at.artist.toLowerCase()) || (e.attachment_name && (e.attachment_name.toLowerCase().includes(`${at.artist.toLowerCase()}-`) || e.attachment_name.toLowerCase().includes(`${at.artist.toLowerCase()}_`))) || (e.real_filename && (e.real_filename.toLowerCase().includes(`${at.artist.toLowerCase()}-`) || e.real_filename.toLowerCase().includes(`${at.artist.toLowerCase()}_`)))) || (_cat.length > 0 && (e.content_full.toLowerCase().includes(_cat[0].search.toLowerCase()) || (e.attachment_name && (e.attachment_name.toLowerCase().includes(`${_cat[0].search.toLowerCase()}-`) || e.attachment_name.toLowerCase().includes(`${_cat[0].search.toLowerCase()}_`))) || (e.real_filename && (e.real_filename.toLowerCase().includes(`${_cat[0].search.toLowerCase()}-`) || e.real_filename.toLowerCase().includes(`${_cat[0].search.toLowerCase()}_`))))));
@@ -641,6 +644,7 @@
                                         console.error(`Failed to update artist data for ${_artist} // ${_name}!`);
                                     } else {
                                         foundArtists.push(_key)
+                                        updateCount++
                                     }
                                 }
                             } else {
@@ -665,13 +669,14 @@
                                 if (!addedArtists) {
                                     console.error(`Failed to write artist data for ${_artist} // ${_name}!`);
                                 } else {
+                                    createCount++
                                     foundArtists.push(_key)
                                 }
                             }
 
                         }))
 
-                        console.log(`Pared all artists for ${ch.name}! : ${artists.length}`);
+                        console.log(`Pared all artists for ${ch.name}! : ${artists.length} : (${createCount}, ${updateCount})`);
                     }
                 }
             }))
