@@ -453,66 +453,58 @@
         const customArtists = await sqlPromiseSimple(`SELECT *
                                                   FROM sequenzia_index_custom`, true);
         if (channels && channels.rows.length > 0) {
-            let requests = channels.rows.reduce((promiseChain, ch) => {
-                return promiseChain.then(() => new Promise(async (resolve) => {
-                    let artistsNames = [];
-                    let artists = [];
-                    let proccssedEids = [];
-                    let messages = await sqlPromiseSafe(`SELECT content_full, attachment_name, real_filename, eid
+            await Promise.all(channels.rows.map(async ch => {
+                let artistsNames = [];
+                let artists = [];
+                let messages = await sqlPromiseSafe(`SELECT content_full, attachment_name, real_filename, eid
                                                      FROM kanmi_records
                                                      WHERE channel = ?
                                                      ORDER BY DATE DESC`, [ch.channelid], true)
-                    if (messages && messages.rows.length > 0) {
-                        const unique = (value, index, self) => {
-                            return self.indexOf(value) === index
-                        }
 
-                        // Twitter Author Search
-                        await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('Twitter Image** - ***') && e.content_full.includes(' (@')).forEach(m => {
-                            const a = m.content_full.split(' (@')[1].split(')')[0].toLowerCase().trim()
-                            const af = m.content_full.split(' (@')[0].split('***')[1].trim()
+                if (messages && messages.rows.length > 0) {
+                    messages.rows.map(m => {
+                        try {
+                            let content = m.content_full
+                            if (content.includes('🧩 File : '))
+                                content = content.split("\n").slice(2).join("\n")
 
-                            if (artistsNames.indexOf(a.toLowerCase()) === -1) {
-                                artists.push({artist: a, name: af, type: 1, source: 1})
-                                artistsNames.push(a.toLowerCase());
-                                if (af) {
-                                    artistsNames.push(af.toLowerCase());
-                                }
-                                proccssedEids.push(m.eid);
-                            }
-                        })
-                        await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('Twitter Image** - ***') && e.content_full.includes(' (') && !e.content_full.includes(' (@')).forEach(m => {
-                            const a = m.content_full.split(' (')[1].split(')')[0].toLowerCase().trim()
-                            const af = m.content_full.split(' (')[0].split('***')[1]
+                            // Twitter Author Search
+                            if (content.includes('Twitter Image** - ***') && content.includes(' (@')) {
+                                const a = content.split(' (@')[1].split(')')[0].toLowerCase().trim()
+                                const af = content.split(' (@')[0].split('***')[1].trim()
 
-                            if (artistsNames.indexOf(a.toLowerCase()) === -1) {
-                                artists.push({artist: a, name: af, type: 1, source: 1})
-                                artistsNames.push(a.toLowerCase());
-                                if (af) {
-                                    artistsNames.push(af.toLowerCase());
+                                if (artistsNames.indexOf(a.toLowerCase()) === -1) {
+                                    artists.push({artist: a, name: af, type: 1, source: 1})
+                                    artistsNames.push(a.toLowerCase());
+                                    if (af)
+                                        artistsNames.push(af.toLowerCase());
+                                    return true;
                                 }
-                                proccssedEids.push(m.eid);
                             }
-                        })
-                        await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('Twitter Image** - ***') && e.content_full.includes('***') && !e.content_full.includes(' (') && !e.content_full.includes(' (@')).forEach(m => {
-                            const a = m.content_full.split('***')[1].toLowerCase().trim()
-                            if (artistsNames.indexOf(a.toLowerCase()) === -1) {
-                                artists.push({artist: a, type: 3, source: 1})
-                                artistsNames.push(a.toLowerCase());
-                                proccssedEids.push(m.eid);
-                            }
-                        })
-                        // Pixiv User Search
-                        await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('**🎆 ') && e.content_full.includes(') - ') && !e.content_full.includes('Twitter Image**')).forEach(m => {
-                            try {
-                                let content = m.content_full
-                                if (m.content_full.includes('🧩 File : ')) {
-                                    content = m.content_full.split("\n").filter((e, i) => {
-                                        if (i > 1) {
-                                            return e
-                                        }
-                                    }).join("\n")
+                            if (content.includes('Twitter Image** - ***') && content.includes(' (') && !content.includes(' (@')) {
+                                const a = content.split(' (')[1].split(')')[0].toLowerCase().trim()
+                                const af = content.split(' (')[0].split('***')[1]
+
+                                if (artistsNames.indexOf(a.toLowerCase()) === -1) {
+                                    artists.push({artist: a, name: af, type: 1, source: 1})
+                                    artistsNames.push(a.toLowerCase());
+                                    if (af)
+                                        artistsNames.push(af.toLowerCase());
+                                    return true;
                                 }
+                            }
+                            if (content.includes('Twitter Image** - ***') && content.includes('***') && !content.includes(' (') && !content.includes(' (@')) {
+                                const a = content.split('***')[1].toLowerCase().trim()
+
+                                if (artistsNames.indexOf(a.toLowerCase()) === -1) {
+                                    artists.push({artist: a, type: 3, source: 1})
+                                    artistsNames.push(a.toLowerCase());
+                                    return true;
+                                }
+                            }
+
+                            // Pixiv User Search
+                            if (content.includes('**🎆 ') && content.includes(') - ')) {
                                 if (content.includes('**✳️ Related to post')) {
                                     const a = content.split('**🎆')[1].split(') - ')[0].split(' (')[1].toLowerCase().trim()
                                     const ai = content.split('**🎆')[1].split(') - ')[1].split('**')[0].toLowerCase().trim()
@@ -521,10 +513,9 @@
                                     if (artistsNames.indexOf(a.toLowerCase()) === -1) {
                                         artists.push({artist: a, name: af, id: ai, type: 1, source: 2})
                                         artistsNames.push(a.toLowerCase());
-                                        if (af) {
+                                        if (af)
                                             artistsNames.push(af.toLowerCase());
-                                        }
-                                        proccssedEids.push(m.eid);
+                                        return true;
                                     }
                                 } else {
                                     const a = content.split(') - ')[0].split(' (')[1].toLowerCase().trim()
@@ -534,151 +525,115 @@
                                     if (artistsNames.indexOf(a.toLowerCase()) === -1) {
                                         artists.push({artist: a, name: af, id: ai, type: 1, source: 2})
                                         artistsNames.push(a.toLowerCase());
-                                        if (af) {
+                                        if (af)
                                             artistsNames.push(af.toLowerCase());
-                                        }
-                                        proccssedEids.push(m.eid);
+                                        return true;
                                     }
                                 }
-                            } catch (e) {
-                                console.error(e)
-                                console.log(m.content_full)
                             }
-                        })
-                        await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('**🎆 ') && e.content_full.includes(')** :') && !e.content_full.includes('Twitter Image**')).forEach(m => {
-                            try {
-                                let content = m.content_full
-                                if (m.content_full.includes('🧩 File : ')) {
-                                    content = m.content_full.split("\n").filter((e, i) => {
-                                        if (i > 1) {
-                                            return e
-                                        }
-                                    }).join("\n")
-                                }
-                                const ai = content.split(' (')[1].split(')** ')[0].toLowerCase().trim()
-                                const af = content.split('**🎆 ')[1].split(' (')[0].trim()
+                            if (content.includes('**🎆 ') && content.includes(')** :')) {
+                                    const ai = content.split(' (')[1].split(')** ')[0].toLowerCase().trim()
+                                    const af = content.split('**🎆 ')[1].split(' (')[0].trim()
 
-                                if (artistsNames.indexOf(ai.toLowerCase()) === -1) {
-                                    artists.push({artist: ai, name: af, id: ai, type: 2, source: 2})
-                                    artistsNames.push(ai.toLowerCase());
-                                    if (af) {
-                                        artistsNames.push(af.toLowerCase());
+                                    if (artistsNames.indexOf(ai.toLowerCase()) === -1) {
+                                        artists.push({artist: ai, name: af, id: ai, type: 2, source: 2})
+                                        artistsNames.push(ai.toLowerCase());
+                                        if (af)
+                                            artistsNames.push(af.toLowerCase());
+                                        return true;
                                     }
-                                    proccssedEids.push(m.eid);
-                                }
-                            } catch (e) {
-                                console.error(e)
-                                console.log(m.content_full)
                             }
-                        })
-                        // Flickr Search
-                        await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('https://www.flickr.com') && !e.content_full.includes('Twitter Image')).forEach(m => {
-                            try {
-                                let content = m.content_full
-                                if (m.content_full.includes('🧩 File : ')) {
-                                    content = m.content_full.split("\n").filter((e, i) => {
-                                        if (i > 1) {
-                                            return e
-                                        }
-                                    }).join("\n")
-                                }
-                                if (m.content_full.includes('(')) {
-                                    const a = content.split(')\n`')[0].split('(').pop().toLowerCase().trim()
 
-                                    if (artistsNames.indexOf(a.toLowerCase()) === -1) {
-                                        artists.push({artist: a, type: 1, source: 3})
-                                        artistsNames.push(a.toLowerCase());
-                                        proccssedEids.push(m.eid);
-                                    }
+                            // Flickr Search
+                            if (content.includes('https://www.flickr.com') && content.includes('(')) {
+                                const a = content.split(')\n`')[0].split('(').pop().toLowerCase().trim()
+
+                                if (artistsNames.indexOf(a.toLowerCase()) === -1) {
+                                    artists.push({artist: a, type: 1, source: 3})
+                                    artistsNames.push(a.toLowerCase());
+                                    return true;
                                 }
-                            } catch (e) {
-                                console.error(e)
-                                console.log(m.content_full)
-                                console.log(m.content_full.split('('))
                             }
-                        })
-                        // Generic Downloads Search
-                        await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('**🖼 Image** - ***') && e.content_full.includes("' by ") && !e.content_full.includes('Twitter Image**')).forEach(m => {
-                            try {
-                                let content = m.content_full
-                                if (m.content_full.includes('🧩 File : ')) {
-                                    content = m.content_full.split("\n").filter((e, i) => {
-                                        if (i > 1) {
-                                            return e
-                                        }
-                                    }).join("\n")
-                                }
+
+                            // Generic Downloads Search
+                            if (content.includes('**🖼 Image** - ***') && content.includes("' by ")) {
                                 const a = content.split(' by ')[1].split('***')[0].toLowerCase().trim()
-
                                 if (artistsNames.indexOf(a.toLowerCase()) === -1) {
                                     artists.push({artist: a, type: 3, source: 4})
                                     artistsNames.push(a.toLowerCase());
-                                    proccssedEids.push(m.eid);
+                                    return true;
                                 }
-                            } catch (e) {
-                                console.error(e)
-                                console.log(m.content_full)
                             }
-                        })
+                        } catch (e) {
+                            console.error(e)
+                            console.log(m.content_full)
+                        }
+                    })
 
-                        const at1 = artists.filter(a => a.type === 1)
-                        const at2 = artists.filter(a => a.type === 2 && at1.filter(b => b.name === a.artist).length === 0 && at1.filter(b => b.artist === a.artist).length === 0)
-                        const at3 = artists.filter(a => a.type === 3 && a.artist.length > 3 && at1.filter(b => b.name === a.artist).length === 0 && at1.filter(b => b.artist === a.artist).length === 0)
-                        artists = [...at1, ...at2, ...at3]
+                    const at1 = artists.filter(a => a.type === 1)
+                    const at2 = artists.filter(a => a.type === 2 && at1.filter(b => b.name === a.artist).length === 0 && at1.filter(b => b.artist === a.artist).length === 0)
+                    const at3 = artists.filter(a => a.type === 3 && a.artist.length > 3 && at1.filter(b => b.name === a.artist).length === 0 && at1.filter(b => b.artist === a.artist).length === 0)
+                    artists = [...at1, ...at2, ...at3]
 
+                    if (artists.length > 0) {
                         console.log(`Total Artists Found in ${ch.name}: ${artists.length}`)
 
-                        let requests = artists.filter(unique).reduce((promiseChain, at) => {
-                            return promiseChain.then(() => new Promise(async (resolveArtist) => {
-                                const _cat = customArtists.rows.filter(a => a.artist === at.artist)
-                                const _atl = messages.rows.filter(e => (e.content_full.toLowerCase().includes(at.artist.toLowerCase()) || (e.attachment_name && (e.attachment_name.toLowerCase().includes(`${at.artist.toLowerCase()}-`) || e.attachment_name.toLowerCase().includes(`${at.artist.toLowerCase()}_`))) || (e.real_filename && (e.real_filename.toLowerCase().includes(`${at.artist.toLowerCase()}-`) || e.real_filename.toLowerCase().includes(`${at.artist.toLowerCase()}_`)))) || (_cat.length > 0 && (e.content_full.toLowerCase().includes(_cat[0].search.toLowerCase()) || (e.attachment_name && (e.attachment_name.toLowerCase().includes(`${_cat[0].search.toLowerCase()}-`) || e.attachment_name.toLowerCase().includes(`${_cat[0].search.toLowerCase()}_`))) || (e.real_filename && (e.real_filename.toLowerCase().includes(`${_cat[0].search.toLowerCase()}-`) || e.real_filename.toLowerCase().includes(`${_cat[0].search.toLowerCase()}_`))))));
-                                const _atc = _atl.length;
-                                const _ati = _atl[0].eid;
-                                const _ats = at.source;
-                                const _atcn = at.type;
-                                const _key = `${ch.channelid}-${md5(at.artist)}`;
-                                let _search = `artist:${at.artist}`
-                                let _url = null;
-                                let _name = null;
-                                let _artist = null;
-                                if (at.source === 1) {
-                                    if (at.type === 1) {
-                                        _artist = at.artist;
-                                        _name = at.name;
-                                        _url = `https://twitter.com/${at.artist}/media`;
-                                    } else if (at.type === 2) {
-                                        _url = `https://twitter.com/${at.artist}/media`;
-                                        _artist = at.artist;
-                                    } else {
-                                        _name = at.artist;
-                                    }
-                                } else if (at.source === 2) {
-                                    if (at.type === 1) {
-                                        _artist = at.artist;
-                                        _name = at.name;
-                                        _url = `https://www.pixiv.net/en/users/${at.id}`;
-                                        _search = `artist:${at.id}`;
-                                    } else if (at.type === 2) {
-                                        _artist = at.id;
-                                        _name = at.name;
-                                        _url = `https://www.pixiv.net/en/users/${at.id}`;
-                                        _search = `artist:${at.id}`;
-                                    } else {
-                                        _artist = at.artist;
-                                        _name = at.name;
-                                        _search = `artist:${at.id}`;
-                                    }
-                                } else if (at.source === 3) {
-                                    _name = at.artist;
-                                    _url = `https://www.flickr.com/photos/${at.artist}`;
-                                } else if (at.source === 4) {
-                                    _name = at.artist;
-                                }
-                                if (_cat.length > 0) {
-                                    _search += ` OR artist:${_cat[0].search}`
-                                }
+                        await Promise.all(artists.filter((value, index, self) => self.indexOf(value) === index).map(async at => {
+                            const _cat = customArtists.rows.filter(a => a.artist === at.artist)
+                            const _atl = messages.rows.filter(e => (e.content_full.toLowerCase().includes(at.artist.toLowerCase()) || (e.attachment_name && (e.attachment_name.toLowerCase().includes(`${at.artist.toLowerCase()}-`) || e.attachment_name.toLowerCase().includes(`${at.artist.toLowerCase()}_`))) || (e.real_filename && (e.real_filename.toLowerCase().includes(`${at.artist.toLowerCase()}-`) || e.real_filename.toLowerCase().includes(`${at.artist.toLowerCase()}_`)))) || (_cat.length > 0 && (e.content_full.toLowerCase().includes(_cat[0].search.toLowerCase()) || (e.attachment_name && (e.attachment_name.toLowerCase().includes(`${_cat[0].search.toLowerCase()}-`) || e.attachment_name.toLowerCase().includes(`${_cat[0].search.toLowerCase()}_`))) || (e.real_filename && (e.real_filename.toLowerCase().includes(`${_cat[0].search.toLowerCase()}-`) || e.real_filename.toLowerCase().includes(`${_cat[0].search.toLowerCase()}_`))))));
 
-                                const addedArtists = await sqlPromiseSafe(`INSERT INTO sequenzia_index_artists
+                            const _atc = _atl.length;
+                            const _ati = _atl[0].eid;
+                            const _ats = at.source;
+                            const _atcn = at.type;
+                            const _key = `${ch.channelid}-${md5(at.artist)}`;
+                            let _search = `artist:${at.artist}`
+                            let _url = null;
+                            let _name = null;
+                            let _artist = null;
+
+                            if (at.source === 1) {
+                                if (at.type === 1) {
+                                    _artist = at.artist;
+                                    _name = at.name;
+                                    _url = `https://twitter.com/${at.artist}/media`;
+                                } else if (at.type === 2) {
+                                    _url = `https://twitter.com/${at.artist}/media`;
+                                    _artist = at.artist;
+                                } else {
+                                    _name = at.artist;
+                                }
+                            }
+                            else if (at.source === 2) {
+                                if (at.type === 1) {
+                                    _artist = at.artist;
+                                    _name = at.name;
+                                    _url = `https://www.pixiv.net/en/users/${at.id}`;
+                                    _search = `artist:${at.id}`;
+                                } else if (at.type === 2) {
+                                    _artist = at.id;
+                                    _name = at.name;
+                                    _url = `https://www.pixiv.net/en/users/${at.id}`;
+                                    _search = `artist:${at.id}`;
+                                } else {
+                                    _artist = at.artist;
+                                    _name = at.name;
+                                    _search = `artist:${at.id}`;
+                                }
+                            }
+                            else if (at.source === 3) {
+                                _name = at.artist;
+                                _url = `https://www.flickr.com/photos/${at.artist}`;
+                            }
+                            else if (at.source === 4) {
+                                _name = at.artist;
+                            }
+
+                            if (_cat.length > 0) {
+                                _search += ` OR artist:${_cat[0].search}`
+                            }
+
+                            if ((await sqlPromiseSafe(`INSERT INTO sequenzia_index_artists
                                                                        SET id         = ?,
                                                                            channelid  = ?,
                                                                            artist     = ?,
@@ -695,34 +650,24 @@
                                                                                                last       = ?,
                                                                                                search     = ?,
                                                                                                source     = ?,
-                                                                                               confidence = ?`, [_key, ch.channelid, _artist, _name, _atc, _search, _url, _ati, _ats, _atcn, _atc, _artist, _name, _ati, _search, _ats, _atcn], true);
-                                if (!addedArtists) {
-                                    console.error(`Failed to write artist data for ${_artist} // ${_name}!`);
-                                } else {
-                                    foundArtists.push(_key)
-                                }
-                                resolveArtist();
-                            }))
-                        }, Promise.resolve());
-                        requests.then(() => {
-                            console.log(`Pared all artists for ${ch.name}!`);
-                            resolve();
-                        })
-                    } else {
-                        console.log(`No Messages Found for ${ch.name}`);
-                        resolve();
+                                                                                               confidence = ?`, [_key, ch.channelid, _artist, _name, _atc, _search, _url, _ati, _ats, _atcn, _atc, _artist, _name, _ati, _search, _ats, _atcn], true))) {
+                                foundArtists.push(_key)
+                            } else {
+                                console.error(`Failed to write artist data for ${_artist} // ${_name}!`);
+                            }
+                        }))
+
+                        console.log(`Pared all artists for ${ch.name}!`);
                     }
-                }))
-            }, Promise.resolve());
-            requests.then(async () => {
-                console.log('Index Generated!');
-                const artistsToRemove = (await sqlPromiseSimple(`SELECT id FROM sequenzia_index_artists`)).rows.filter(id => foundArtists.indexOf(id.id) !== -1).map(id => `id = '${id}'`).join(' OR ');
-                if (artistsToRemove.length > 0) {
-                    await sqlPromiseSimple(`DELETE FROM sequenzia_index_artists WHERE (${artistsToRemove})`)
                 }
-            })
+            }))
+            console.log('Index Generated!');
+            const artistsToRemove = (await sqlPromiseSimple(`SELECT id FROM sequenzia_index_artists`)).rows.filter(id => foundArtists.indexOf(id.id) !== -1).map(id => `id = '${id}'`).join(' OR ');
+            if (artistsToRemove.length > 0) {
+                await sqlPromiseSimple(`DELETE FROM sequenzia_index_artists WHERE (${artistsToRemove})`)
+            }
         } else {
-            console.log('Failed to get any photo channels')
+            console.log('Failed to get any channels')
         }
     }
 
