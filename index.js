@@ -670,8 +670,6 @@
                             }
 
                         }))
-
-                        console.log(`Pared all artists for ${ch.name}!`);
                     }
                 }
             }))
