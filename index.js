@@ -459,7 +459,7 @@
                 let artists = [];
                 let messages = await sqlPromiseSafe(`SELECT content_full, attachment_name, real_filename, eid
                                                      FROM kanmi_records
-                                                     WHERE channel = ?
+                                                     WHERE channel = ? AND attachment_name IS NOT NULL AND (attachment_name LIKE '%.jp%_' OR attachment_name LIKE '%.jfif' OR attachment_name LIKE '%.png' OR attachment_name LIKE '%.gif' OR attachment_name LIKE '%.web%_')
                                                      ORDER BY DATE DESC`, [ch.channelid], true)
 
                 if (messages && messages.rows.length > 0) {
