@@ -577,7 +577,7 @@
                     artists = [...at1, ...at2, ...at3]
 
                     if (artists.length > 0) {
-                        console.log(`Total Artists Found in ${ch.name}: ${artists.length}`)
+                        //console.log(`Total Artists Found in ${ch.name}: ${artists.length}`)
 
                         await Promise.all(artists.filter((value, index, self) => self.indexOf(value) === index).map(async at => {
                             const _cat = customArtists.rows.filter(a => a.artist === at.artist)
@@ -670,6 +670,8 @@
                             }
 
                         }))
+
+                        console.log(`Pared all artists for ${ch.name}! : ${artists.length}`);
                     }
                 }
             }))
