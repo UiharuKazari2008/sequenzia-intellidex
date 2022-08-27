@@ -633,7 +633,7 @@
                                 _search += ` OR artist:${_cat[0].search}`
                             }
 
-                            if ((await sqlPromiseSafe(`INSERT INTO sequenzia_index_artists
+                            const addedArtists = await sqlPromiseSafe(`INSERT INTO sequenzia_index_artists
                                                                        SET id         = ?,
                                                                            channelid  = ?,
                                                                            artist     = ?,
@@ -650,10 +650,11 @@
                                                                                                last       = ?,
                                                                                                search     = ?,
                                                                                                source     = ?,
-                                                                                               confidence = ?`, [_key, ch.channelid, _artist, _name, _atc, _search, _url, _ati, _ats, _atcn, _atc, _artist, _name, _ati, _search, _ats, _atcn], true))) {
-                                foundArtists.push(_key)
-                            } else {
+                                                                                               confidence = ?`, [_key, ch.channelid, _artist, _name, _atc, _search, _url, _ati, _ats, _atcn, _atc, _artist, _name, _ati, _search, _ats, _atcn], true);
+                            if (!addedArtists) {
                                 console.error(`Failed to write artist data for ${_artist} // ${_name}!`);
+                            } else {
+                                foundArtists.push(_key)
                             }
                         }))
 
