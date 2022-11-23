@@ -691,7 +691,7 @@
                                     last: _ati,
                                     source: _ats,
                                     confidence: _atcn,
-                                    rateing: _atr
+                                    rating: _atr
                                 }, {
                                     count: _atc,
                                     artist: _artist,
@@ -700,7 +700,7 @@
                                     search: _search,
                                     source: _ats,
                                     confidence: _atcn,
-                                    rateing: _atr
+                                    rating: _atr
                                 }], true);
                                 if (!addedArtists) {
                                     console.error(`Failed to write artist data for ${_artist} // ${_name}!`);
