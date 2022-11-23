@@ -458,6 +458,7 @@
                     let artistsNames = [];
                     let artists = [];
                     let proccssedEids = [];
+                    let cms_decisions = await sqlPromiseSimple(`SELECT userid, SUM(decision)/COUNT(userid) AS percentage FROM twitter_tweets WHERE decision IS NOT NULL GROUP BY userid ORDER BY userid`, true)
                     let messages = await sqlPromiseSafe(`SELECT content_full, attachment_name, real_filename, eid
                                                      FROM kanmi_records
                                                      WHERE channel = ?
@@ -637,6 +638,7 @@
                                 const _ats = at.source;
                                 const _atcn = at.type;
                                 const _key = `${ch.channelid}-${md5(at.artist)}`;
+                                const _atr = cms_decisions.filter(e => e.toLowerCase() === _artist.toLowerCase()).map(e => e.percentage).pop() || null;
                                 let _search = `artist:${at.artist}`
                                 let _url = null;
                                 let _name = null;
@@ -678,24 +680,28 @@
                                     _search += ` OR artist:${_cat[0].search}`
                                 }
 
-                                const addedArtists = await sqlPromiseSafe(`INSERT INTO sequenzia_index_artists
-                                                                       SET id         = ?,
-                                                                           channelid  = ?,
-                                                                           artist     = ?,
-                                                                           name       = ?,
-                                                                           count      = ?,
-                                                                           search     = ?,
-                                                                           url        = ?,
-                                                                           last       = ?,
-                                                                           source     = ?,
-                                                                           confidence = ?
-                                                                       ON DUPLICATE KEY UPDATE count      = ?,
-                                                                                               artist     = ?,
-                                                                                               name       = ?,
-                                                                                               last       = ?,
-                                                                                               search     = ?,
-                                                                                               source     = ?,
-                                                                                               confidence = ?`, [_key, ch.channelid, _artist, _name, _atc, _search, _url, _ati, _ats, _atcn, _atc, _artist, _name, _ati, _search, _ats, _atcn], true);
+                                const addedArtists = await sqlPromiseSafe(`INSERT INTO sequenzia_index_artists SET ? ON DUPLICATE KEY UPDATE ?`, [{
+                                    id: _key,
+                                    channelid: ch.channelid,
+                                    artist: _artist,
+                                    name: _name,
+                                    count: _atc,
+                                    search: _search,
+                                    url: _url,
+                                    last: _ati,
+                                    source: _ats,
+                                    confidence: _atcn,
+                                    rateing: _atr
+                                }, {
+                                    count: _atc,
+                                    artist: _artist,
+                                    name: _name,
+                                    last: _ati,
+                                    search: _search,
+                                    source: _ats,
+                                    confidence: _atcn,
+                                    rateing: _atr
+                                }], true);
                                 if (!addedArtists) {
                                     console.error(`Failed to write artist data for ${_artist} // ${_name}!`);
                                 } else {
