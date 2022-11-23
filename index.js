@@ -638,7 +638,7 @@
                                 const _ats = at.source;
                                 const _atcn = at.type;
                                 const _key = `${ch.channelid}-${md5(at.artist)}`;
-                                const _atr = cms_decisions.filter(e => e.toLowerCase() === _artist.toLowerCase()).map(e => e.percentage).pop() || null;
+                                const _atr = cms_decisions.rows.filter(e => e.toLowerCase() === _artist.toLowerCase()).map(e => e.percentage).pop() || null;
                                 let _search = `artist:${at.artist}`
                                 let _url = null;
                                 let _name = null;
