@@ -638,7 +638,6 @@
                                 const _ats = at.source;
                                 const _atcn = at.type;
                                 const _key = `${ch.channelid}-${md5(at.artist)}`;
-                                const _atr = cms_decisions.rows.filter(e => e.userid.toLowerCase() === _artist.toLowerCase()).map(e => e.percentage).pop() || null;
                                 let _search = `artist:${at.artist}`
                                 let _url = null;
                                 let _name = null;
@@ -679,6 +678,7 @@
                                 if (_cat.length > 0) {
                                     _search += ` OR artist:${_cat[0].search}`
                                 }
+                                const _atr = cms_decisions.rows.filter(e => e.userid.toLowerCase() === _artist.toLowerCase()).map(e => e.percentage).pop() || null;
 
                                 const addedArtists = await sqlPromiseSafe(`INSERT INTO sequenzia_index_artists SET ? ON DUPLICATE KEY UPDATE ?`, [{
                                     id: _key,
