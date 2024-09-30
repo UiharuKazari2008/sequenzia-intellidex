@@ -572,6 +572,59 @@
                                 console.log(m.content_full)
                             }
                         })
+                        // E-Hentai User Search
+                        await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('**🐼 ') && e.content_full.includes('** : ***') && !e.content_full.includes('Twitter Image**')).forEach(m => {
+                            try {
+                                let content = m.content_full
+                                if (m.content_full.includes('🧩 File : ')) {
+                                    content = m.content_full.split("\n").filter((e, i) => {
+                                        if (i > 1) {
+                                            return e
+                                        }
+                                    }).join("\n")
+                                }
+                                content = content.split("\n")[0];
+                                const a = content.split('** : ***')[1].split(' (')[0].split('***')[0].toLowerCase().trim()
+
+                                if (artistsNames.indexOf(a.toLowerCase()) === -1) {
+                                    artists.push({artist: a, type: 3, source: 5})
+                                    artistsNames.push(a.toLowerCase());
+                                    proccssedEids.push(m.eid);
+                                }
+                            } catch (e) {
+                                console.error(e)
+                                console.log(m.content_full)
+                            }
+                        })
+                        // Kemono/Coomer User Search (NEXT SOURCE WILL BE 25)
+                        await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('**🎏 ') && e.content_full.includes('** : ***') && !e.content_full.includes('Twitter Image**')).forEach(m => {
+                            try {
+                                let content = m.content_full
+                                if (m.content_full.includes('🧩 File : ')) {
+                                    content = m.content_full.split("\n").filter((e, i) => {
+                                        if (i > 1) {
+                                            return e
+                                        }
+                                    }).join("\n")
+                                }
+                                content = content.split("\n")[0].split("** : ***")[0];
+                                const as = content.split(' (');
+                                const a = as[0].split('**🎏')[1].toLowerCase().trim();
+                                const s = as[1].split(')')[0].toLowerCase().trim();
+
+                                const staticSources = ['fanbox', 'patreon', 'fantia', 'fansly', 'discord', 'afdian', 'boosty', 'gumroad', 'subscribestar', 'onlyfans', 'candfans'];
+                                const source = (staticSources.indexOf(s) !== -1) ? (6 + (staticSources.indexOf(s) + 1)) : 6;
+
+                                if (artistsNames.indexOf(a.toLowerCase()) === -1) {
+                                    artists.push({artist: a, type: ((source === 6) ? 3 : 1), source})
+                                    artistsNames.push(a.toLowerCase());
+                                    proccssedEids.push(m.eid);
+                                }
+                            } catch (e) {
+                                console.error(e)
+                                console.log(m.content_full)
+                            }
+                        })
                         // Flickr Search
                         await messages.rows.filter(e => proccssedEids.indexOf(e.eid) === -1 && e.content_full.includes('https://www.flickr.com') && !e.content_full.includes('Twitter Image')).forEach(m => {
                             try {
@@ -674,6 +727,12 @@
                                     _url = `https://www.flickr.com/photos/${at.artist}`;
                                 } else if (at.source === 4) {
                                     _name = at.artist;
+                                } else if (at.source === 5) {
+                                    _name = at.artist;
+                                    _url = `https://e-hentai.org/?f_search=${_name}`;
+                                } else if (at.source >= 6 && at.source <= 24) {
+                                    _name = at.artist;
+                                    _url = `https://e-hentai.org/?f_search=${_name}`;
                                 }
                                 if (_cat.length > 0) {
                                     _search += ` OR artist:${_cat[0].search}`
@@ -732,8 +791,8 @@
         }
     }
 
+    await updateMetadata();
+    await generateArtistIndex();
     cron.schedule('45 * * * *', async () => { generateArtistIndex(); });
     cron.schedule('*/5 * * * *', async () => { updateMetadata(); });
-    updateMetadata();
-    generateArtistIndex();
 })()
